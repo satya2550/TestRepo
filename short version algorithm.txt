@@ -1,0 +1,308 @@
+static class ImageProcess {
+
+		static short minLeftX;
+		static short minLeftY;
+		static short maxRightX;
+		static short maxRightY;
+		static short[] leftBorderX;
+		static short[] leftBorderY;
+		static short[] rightBorderX;
+		static short[] rightBorderY;
+		static short verticalEnd;
+
+		private static final short THRESHOLD_DIFF_BW = 200;
+		private static final short THRESHOLD_WHITE = 400;
+		private static final short THRESHOLD_BLACK=550;
+		private static final short THRESHOLD_GREEN=500;
+		private static final short THRESHOLD_RED=500;
+		private static final short THRESHOLD_GRAY=500;
+		private static final short THRESHOLD_BLUE=500;
+
+		static int widthWhite;
+		static int heightWhite;
+
+
+		static void detectBorder(Bitmap bitmapWhite, Bitmap bitmapBlack) {
+
+
+			widthWhite = bitmapWhite.getWidth();
+			heightWhite = bitmapWhite.getHeight();
+
+			Log.i("SatyaTest","detect Borer called");
+
+			//Creating Luminance difference array
+
+			short[][] LCDWhiteBlackDiff = new short[heightWhite][widthWhite];
+
+			short pixelBlackColor =0;// (short)bitmap.getPixel(y, x);
+			short pixelWhiteColor=0;
+			short pixelBlackColorRed=0;
+			short pixelBlackColorGreen=0;
+			short pixelBlackColorBlue=0;
+			short pixelWhiteColorRed=0;
+			short pixelWhiteColorGreen=0;
+			short pixelWhiteColorBlue=0;
+
+
+
+			for (short x = 0; x < heightWhite; ++x) {
+				for (short y = 0; y < widthWhite; ++y) {
+
+					pixelBlackColor = (short)bitmapBlack.getPixel(y, x);
+
+					pixelBlackColorRed = (short) Color.red(pixelBlackColor);
+					pixelBlackColorGreen = (short)Color.green(pixelBlackColor);
+					pixelBlackColorBlue = (short)Color.blue(pixelBlackColor);
+
+					pixelWhiteColor = (short)bitmapWhite.getPixel(y, x);
+
+					pixelWhiteColorRed = (short)Color.red(pixelWhiteColor);
+					pixelWhiteColorGreen = (short)Color.green(pixelWhiteColor);
+					pixelWhiteColorBlue = (short)Color.blue(pixelWhiteColor);
+
+
+					LCDWhiteBlackDiff[x][y]= (short) ((pixelWhiteColorRed-pixelBlackColorRed) + (pixelWhiteColorGreen-pixelBlackColorGreen) + (pixelWhiteColorBlue-pixelBlackColorBlue));
+
+					//LCDWhiteBlackDiff[x][y]= Math.abs(pixelWhiteColorRed-pixelBlackColorRed) + Math.abs(pixelWhiteColorGreen-pixelBlackColorGreen) + Math.abs(pixelWhiteColorBlue-pixelBlackColorBlue);
+
+				}
+			}
+
+
+
+			leftBorderX = new short[heightWhite];
+			leftBorderY = new short[heightWhite];
+			rightBorderX = new short[heightWhite];
+			rightBorderY = new short[heightWhite];
+
+			for (short i=0; i<heightWhite; i++){
+				leftBorderX[i]=0;
+				leftBorderY[i]=0;
+				rightBorderX[i]=0;
+				rightBorderY[i]=0;
+			}
+
+
+			verticalEnd=0;
+
+
+
+			for (int i = 1; i < heightWhite; i++)  //i,j=0 has been excluded for safety
+			{
+				for (int j = 1; j < widthWhite - 5; j++)
+				{
+					if ( (LCDWhiteBlackDiff[i][j] > THRESHOLD_DIFF_BW ) && (LCDWhiteBlackDiff[i][j + 1] > THRESHOLD_DIFF_BW ) && ( LCDWhiteBlackDiff[i][j + 2] > THRESHOLD_DIFF_BW )&& (LCDWhiteBlackDiff[i][j + 3] > THRESHOLD_DIFF_BW )&& (LCDWhiteBlackDiff[i][j + 4] > THRESHOLD_DIFF_BW))
+					{
+						leftBorderX[verticalEnd] = (short) j;
+						leftBorderY[verticalEnd] = (short) i;
+
+						for (j = widthWhite - 1; j > 0; j--)
+						{
+							if ((LCDWhiteBlackDiff[i][j] > THRESHOLD_DIFF_BW) &&(LCDWhiteBlackDiff[i][j - 1] > THRESHOLD_DIFF_BW )&&( LCDWhiteBlackDiff[i][j - 2] > THRESHOLD_DIFF_BW ) && (LCDWhiteBlackDiff[i][j - 3] > THRESHOLD_DIFF_BW ) && (LCDWhiteBlackDiff[i][j - 4] > THRESHOLD_DIFF_BW))
+							{
+								rightBorderX[verticalEnd] = (short) j;
+								rightBorderY[verticalEnd] = (short) i;
+
+								//	L2Rdistance[verticalEnd] = rightBorderX[verticalEnd] - leftBorderX[verticalEnd];
+								verticalEnd++;
+								break;
+							}
+						}
+						break;
+					}
+				}
+			}
+
+
+			minLeftX = (short) widthWhite;
+			minLeftY= (short) heightWhite;
+			maxRightX=0;
+			maxRightY=0;
+
+			for (short i = 0; i < verticalEnd; i++)
+			{
+				if (minLeftX > leftBorderX[i])
+					minLeftX = leftBorderX[i];
+
+				if (minLeftY > leftBorderY[i])
+					minLeftY = leftBorderY[i];
+
+				if (maxRightX < rightBorderX[i])
+					maxRightX = rightBorderX[i];
+
+				if (maxRightY < rightBorderY[i])
+					maxRightY = rightBorderY[i];
+			}
+
+			Log.i("SatyaTest"," minLeftX "+minLeftX+"  minLeftY "+minLeftY+" maxRightX "+maxRightX+" maxRightY "+maxRightY);
+
+
+
+			LCDWhiteBlackDiff=null;
+
+			Log.i("SatyaTest","End of detectBorder");
+
+			mHanlder.sendEmptyMessage(IMAGE_BORDER_DETECTED);
+
+
+
+		}
+
+		static short processImageForDeadPixel(Bitmap bitmap, String displayColor){
+
+			short result=0;
+			// filling white in areas other than LCD
+
+
+			//an shorteger array that will store ARGB pixel values
+			short[][] rgbValuesBlack;
+
+			short pixelColor;
+
+			final short width = (short) bitmap.getWidth();
+			final short height = (short) bitmap.getHeight();
+
+
+			short[][] LCD_Red = new short[height][width];
+			short[][] LCD_Green = new short[height][width];
+			short[][] LCD_Blue = new short[height][width];
+
+
+			Log.i("SatyaTest","processImageForDeadPixel "+displayColor);
+
+			for (short x = 0; x < height; ++x) {
+				for (short y = 0; y < width; ++y) {
+
+					pixelColor = (short) bitmap.getPixel(y, x);
+
+					LCD_Red[x][y] = (short) Color.red(pixelColor);
+					LCD_Green[x][y] = (short) Color.green(pixelColor);
+					LCD_Blue[x][y] = (short) Color.blue(pixelColor);
+				}
+			}
+
+			short red=0,green=0,blue=0;
+			short threshold=0;
+
+			switch (displayColor){
+
+				case ImageConstants.WHITE:
+					red=255;
+					green=255;
+					blue=255;
+					threshold=THRESHOLD_WHITE;
+
+					break;
+				case ImageConstants.BLACK:
+					red=0;
+					green=0;
+					blue=0;
+					threshold=THRESHOLD_BLACK;
+					break;
+
+				case  ImageConstants.RED:
+					red=255;
+					green=0;
+					blue=0;
+					threshold=THRESHOLD_RED;
+
+					break;
+				case  ImageConstants.GREEN:
+					red=0;
+					green=255;
+					blue=0;
+					threshold=THRESHOLD_GREEN;
+
+					break;
+				case  ImageConstants.BLUE:
+					red=0;
+					green=0;
+					blue=255;
+					threshold=THRESHOLD_BLUE;
+					break;
+				case  ImageConstants.GRAY:
+					red=127;
+					green=127;
+					blue=127;
+					threshold=THRESHOLD_GRAY;
+					break;
+				default:
+					break;
+			}
+
+
+
+			for (short k = 0; k < verticalEnd; k++)
+			{
+				short i = leftBorderY[k];
+				for (int j = leftBorderX[k]+50; j >= minLeftX; j--)
+				{
+					LCD_Red[i][j] = red;
+					LCD_Green[i][j] = green;
+					LCD_Blue[i][j] = blue;
+				}
+
+				for (int j = rightBorderX[k]-50; j <= maxRightX; j++)
+				{
+					LCD_Red[i][j] = red;
+					LCD_Green[i][j] = green;
+					LCD_Blue[i][j] = blue;
+				}
+			}
+
+
+
+			double localDeviation;
+			short dangerPixels = 0;
+			for (short i = minLeftY; i <= maxRightY-2; i++)
+			{
+				for (short j = minLeftX; j <= maxRightX-2; j++)
+				{
+					localDeviation = Math.abs(red - LCD_Red[i][j]) + Math.abs(green - LCD_Green[i][j]) + Math.abs(blue - LCD_Blue[i][j]);
+					localDeviation += Math.abs(red - LCD_Red[i][j + 1]) + Math.abs(green - LCD_Green[i][j + 1]) +  Math.abs(blue- LCD_Blue[i][j + 1]);
+					localDeviation += Math.abs(red - LCD_Red[i][j + 2]) +Math.abs(green - LCD_Green[i][j + 2]) +  Math.abs(blue- LCD_Blue[i][j + 2]);
+
+					localDeviation += Math.abs(red - LCD_Red[i + 1][j]) + Math.abs(green - LCD_Green[i + 1][j]) +  Math.abs(blue - LCD_Blue[i + 1][j]);
+					localDeviation += Math.abs(red - LCD_Red[i + 1][j + 1]) + Math.abs(green - LCD_Green[i + 1][j + 1]) +  Math.abs(blue - LCD_Blue[i + 1][j + 1]);
+					localDeviation += Math.abs(red - LCD_Red[i + 1][j + 2]) + Math.abs(green - LCD_Green[i + 1][j + 2]) +  Math.abs(blue - LCD_Blue[i + 1][j + 2]);
+
+					localDeviation += Math.abs(red - LCD_Red[i + 2][j]) + Math.abs(green - LCD_Green[i + 2][j]) +  Math.abs(blue - LCD_Blue[i + 2][j]);
+					localDeviation += Math.abs(red - LCD_Red[i + 2][j + 1]) + Math.abs(green - LCD_Green[i + 2][j + 1]) +  Math.abs(blue- LCD_Blue[i + 2][j + 1]);
+					localDeviation += Math.abs(red - LCD_Red[i + 2][j + 2]) + Math.abs(green - LCD_Green[i + 2][j + 2]) +  Math.abs(blue- LCD_Blue[i + 2][j + 2]);
+
+					localDeviation = localDeviation / 9;
+
+					if (localDeviation > threshold)
+						dangerPixels++;
+				}
+			}
+
+			result=dangerPixels;
+
+			Log.i("SatyaTest", "detect dead pixels dangerPixels " + dangerPixels + " displayColor " + displayColor);
+
+
+			if(displayColor.equals(ImageConstants.WHITE)){
+				mHanlder.sendEmptyMessage(WHITE_IMAGE_PROCESSED);
+
+			}else if (displayColor.equals(ImageConstants.BLACK)){
+				mHanlder.sendEmptyMessage(BLACK_IMAGE_PROCESSED);
+			}else if (displayColor.equals(ImageConstants.GRAY)){
+				mHanlder.sendEmptyMessage(GRAY_IMAGE_PROCESSED);
+			}else if (displayColor.equals(ImageConstants.RED)){
+				mHanlder.sendEmptyMessage(RED_IMAGE_PROCESSED);
+			}else if (displayColor.equals(ImageConstants.GREEN)){
+				mHanlder.sendEmptyMessage(GREEN_IMAGE_PROCESSED);
+			}else if (displayColor.equals(ImageConstants.BLUE)){
+				mHanlder.sendEmptyMessage(BLUE_IMAGE_PROCESSED);
+			}
+
+			LCD_Red=null;
+			LCD_Green=null;
+			LCD_Blue=null;
+
+
+			return  result;
+
+		}
+	}
